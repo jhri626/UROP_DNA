@@ -1,0 +1,20 @@
+train: ../UROP/train/images
+val: ../UROP/valid/images
+test: ../UROP/test/images
+
+
+augmentation:
+  fliplr: 0.5  # 좌우 반전 확률 50%
+  flipud: 0.5  # 상하 반전 확률 50%
+  degrees: 10  # 회전 각도 범위 -10° ~ +10°
+  grayscale: 0.1  # 10%의 이미지에 그레이스케일 적용
+
+nc: 6
+names: ['mis-folded','well-deformed',well-folded','Chiral', 'Mona_Lisa', 'OpenAI']
+
+roboflow:
+  workspace: snuaisdl
+  project: unique-image
+  version: 1
+  license: CC BY 4.0
+  url: https://universe.roboflow.com/snuaisdl/unique-image/dataset/1
