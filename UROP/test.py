@@ -5,7 +5,7 @@ import os
 
 def test_model():
     # Load the trained model
-    model = YOLO('/data2/UROP/ljh/UROP/model/experiment_x4/weights/best.pt')  # Trained weights file
+    model = YOLO('/data2/UROP/ljh/UROP/model/experiment_m/weights/best.pt')  # Trained weights file
 
     # Run validation/test
     results = model.val(

@@ -1,50 +1,56 @@
+# main.py
 import os
+import sys
+import argparse
 from ultralytics import YOLO
 import cv2
-import numpy as np
 from collections import Counter
-import torch
+from config import (
+    DEFAULT_MODEL_PATH, DEFAULT_DEVICE_NUMBER, DEFAULT_CONFIDENCE_THRESHOLD,
+    DEFAULT_IOU_THRESHOLD, DEFAULT_IMAGE_FOLDER_PATH, DEFAULT_OUTPUT_FOLDER_PATH,
+    DEFAULT_LABEL_FOLDER_PATH, COLORS, MIN_BOX_SIZE
+)
+from filtering import filter_boxes
+from utils import draw_bounding_box
+from validation import load_ground_truth, evaluate  # Validation 관련 함수
+import numpy as np
 
-# 1. 로컬에 저장된 YOLO 모델 파일 경로 설정
-model_path = "/data2/UROP/ljh/UROP/model/experiment_x/weights/best.pt"  # 사용자 학습 모델 파일 경로
-device_number = 3  # 원하는 GPU 번호 (예: 1번 GPU)
-model = YOLO(model_path)  # 로컬 모델 로드
+sys.path.append(os.path.join(os.path.dirname(__file__), 'codes'))
 
-# 2. 이미지 폴더 경로 설정
-image_folder_path = "./full_images"  # 이미지 폴더 경로
-output_folder_path = "./result_img/model_x/image"  # 결과 이미지 저장 폴더
-label_folder_path = "./result_img/model_x/label"  # 클래스 개수 저장 폴더
+# CLI 인자 설정
+parser = argparse.ArgumentParser(description="YOLO Model Prediction or Validation")
+parser.add_argument('--model_path', type=str, default=DEFAULT_MODEL_PATH, help="YOLO 모델 파일 경로")
+parser.add_argument('--device', type=int, default=DEFAULT_DEVICE_NUMBER, help="사용할 GPU 번호")
+parser.add_argument('--confidence', type=float, default=DEFAULT_CONFIDENCE_THRESHOLD, help="Confidence Threshold")
+parser.add_argument('--iou', type=float, default=DEFAULT_IOU_THRESHOLD, help="NMS IoU Threshold")
+parser.add_argument('--image_folder', type=str, default=DEFAULT_IMAGE_FOLDER_PATH, help="이미지 폴더 경로")
+parser.add_argument('--output_folder', type=str, default=DEFAULT_OUTPUT_FOLDER_PATH, help="결과 이미지 저장 폴더")
+parser.add_argument('--label_folder', type=str, default=DEFAULT_LABEL_FOLDER_PATH, help="클래스 개수 저장 폴더")
+parser.add_argument('--mode', type=str, choices=['predict', 'test'], default='predict', help="작업 모드: 'predict' 또는 'test'")
+args = parser.parse_args()
 
-# 결과 저장 폴더 생성
-os.makedirs(output_folder_path, exist_ok=True)
-os.makedirs(label_folder_path, exist_ok=True)
+# 결과 폴더 생성
+os.makedirs(args.output_folder, exist_ok=True)
+os.makedirs(args.label_folder, exist_ok=True)
 
-# Bounding Box 크기 조절 비율
-bbox_scale_factor = 1  # 80%로 축소
-font_scale = 0.5  # 텍스트 크기 줄이기
-bbox_thickness = 2  # Bounding Box 선 두께 줄이기
-min_box_size = 20  # 최소 Bounding Box 크기 (픽셀 단위, 너비 및 높이 기준)
+# YOLO 모델 로드
+model = YOLO(args.model_path)
 
-confidence_threshold = 0.3  # Minimum confidence score
-iou_threshold = 0.8  # NMS IOU threshold
+# Validation 결과를 저장할 변수 초기화 (테스트 모드에서만 사용)
+all_metrics = []
 
-# 클래스별 고유 색상 지정
-num_classes = len(model.names)
-np.random.seed(42)
-colors = {i: (np.random.randint(128, 255), np.random.randint(128, 255), np.random.randint(128, 255)) for i in range(num_classes)}
-
-# 3. 폴더 내 모든 이미지 파일에 대해 예측 수행
-for filename in os.listdir(image_folder_path):
+# 이미지 파일에 대해 예측 수행
+for filename in os.listdir(args.image_folder):
     if filename.endswith(('.jpg', '.jpeg', '.png')):  # 이미지 파일만 필터링
-        image_path = os.path.join(image_folder_path, filename)
+        image_path = os.path.join(args.image_folder, filename)
         
         # 이미지 예측 수행
         results = model.predict(
             source=image_path, 
             batch=1, 
-            device=f"cuda:{device_number}",
-            conf=confidence_threshold,  # Confidence threshold
-            iou=iou_threshold  # NMS threshold
+            device=f"cuda:{args.device}",
+            conf=args.confidence,
+            iou=args.iou
         )
         
         # 원본 이미지 불러오기
@@ -53,48 +59,54 @@ for filename in os.listdir(image_folder_path):
         # 클래스별 개수 집계 초기화
         class_counts = Counter()
         
-        # 결과 이미지에 Bounding Box와 텍스트를 수동으로 그리기
+        # 박스 필터링 수행
         for result in results:
-            for box in result.boxes:
-                class_id = int(box.cls)  # 클래스 ID
-                class_name = model.names[class_id]  # 클래스명 (모델에서 불러옴)
-                color = colors[class_id]  # 클래스별 고유 색상 가져오기
+            filtered_boxes = filter_boxes(result.boxes)
+            
+            # 예측 결과를 저장할 리스트
+            predictions = []
+            for box in filtered_boxes:
+                class_id = int(box.cls)
+                class_name = model.names[class_id]
+                color = COLORS[class_id]
                 
-                x1, y1, x2, y2 = box.xyxy[0].cpu().numpy()  # Bounding Box 좌표
-
-                # 축소된 Bounding Box 좌표 계산
-                cx, cy = (x1 + x2) / 2, (y1 + y2) / 2
-                width, height = (x2 - x1) * bbox_scale_factor, (y2 - y1) * bbox_scale_factor
-                 
-                if width < min_box_size or height < min_box_size:
-                   continue  # 작은 박스는 무시
+                # Bounding Box 좌표 추출 및 크기 확인
+                x1, y1, x2, y2 = box.xyxy[0].cpu().numpy()
+                width, height = x2 - x1, y2 - y1
+                if width < MIN_BOX_SIZE or height < MIN_BOX_SIZE:
+                    continue
                 
-                x1, y1, x2, y2 = int(cx - width / 2), int(cy - height / 2), int(cx + width / 2), int(cy + height / 2)
-
                 # 클래스별 개수 증가
                 class_counts[class_name] += 1
+                predictions.append((class_id, [x1, y1, x2, y2]))
+                draw_bounding_box(image, (int(x1), int(y1), int(x2), int(y2)), class_name, color)
 
-                # Bounding Box 그리기
-                cv2.rectangle(image, (x1, y1), (x2, y2), color, thickness=bbox_thickness)
+        # 'test' 모드인 경우, 예측 결과와 Ground Truth 비교
+        if args.mode == 'test':
+            # Ground Truth 불러오기
+            ground_truths = load_ground_truth(args.label_folder, filename)
+            
+            # 성능 평가
+            metrics = evaluate(predictions, ground_truths)
+            all_metrics.append(metrics)
+            print(f"Metrics for {filename}: {metrics}")
 
-                # 클래스 이름 텍스트 표시
-                label = f"{class_name}"
-                (label_width, label_height), baseline = cv2.getTextSize(label, cv2.FONT_HERSHEY_SIMPLEX, font_scale, 1)
-                label_y = max(y1, label_height + 10)
-                cv2.rectangle(image, (x1, label_y - label_height - 10), (x1 + label_width, label_y + baseline - 10), color, -1)
-                cv2.putText(image, label, (x1, label_y - 5), cv2.FONT_HERSHEY_SIMPLEX, font_scale, (0, 0, 0), thickness=1)
-
-        # 각 클래스별 검출 개수 출력
-        print(f"Class counts for {filename}: {class_counts}")
-
-        # 결과 이미지 저장
-        output_path = os.path.join(output_folder_path, f"predicted_{filename}")
+        # 'predict' 또는 'test' 공통 처리 (이미지 및 클래스별 개수 저장)
+        output_path = os.path.join(args.output_folder, f"predicted_{filename}")
         cv2.imwrite(output_path, image)
         print(f"Predicted image saved to {output_path}")
-        
-        # 클래스별 개수 txt 파일로 저장
-        label_path = os.path.join(label_folder_path, f"{filename.split('.')[0]}_counts.txt")
+
+        label_path = os.path.join(args.label_folder, f"{filename.split('.')[0]}_counts.txt")
         with open(label_path, "w") as f:
             for class_name, count in class_counts.items():
                 f.write(f"{class_name}: {count}\n")
         print(f"Class counts saved to {label_path}")
+
+# 전체 평균 성능 출력 (테스트 모드에서만 수행)
+if args.mode == 'test' and all_metrics:
+    average_metrics = {
+        "precision": np.mean([m["precision"] for m in all_metrics]),
+        "recall": np.mean([m["recall"] for m in all_metrics]),
+        "f1_score": np.mean([m["f1_score"] for m in all_metrics])
+    }
+    print(f"Overall Metrics: {average_metrics}")
