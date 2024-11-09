@@ -1,6 +1,9 @@
 # main.py
 import os
 import sys
+
+sys.path.append(os.path.join(os.path.dirname(__file__), 'codes'))
+
 import argparse
 from ultralytics import YOLO
 import cv2
@@ -11,11 +14,11 @@ from config import (
     DEFAULT_LABEL_FOLDER_PATH, COLORS, MIN_BOX_SIZE
 )
 from filtering import filter_boxes
-from utils import draw_bounding_box
+from codes.utils import draw_bounding_box
 from validation import load_ground_truth, evaluate  # Validation 관련 함수
 import numpy as np
 
-sys.path.append(os.path.join(os.path.dirname(__file__), 'codes'))
+
 
 # CLI 인자 설정
 parser = argparse.ArgumentParser(description="YOLO Model Prediction or Validation")
@@ -27,6 +30,7 @@ parser.add_argument('--image_folder', type=str, default=DEFAULT_IMAGE_FOLDER_PAT
 parser.add_argument('--output_folder', type=str, default=DEFAULT_OUTPUT_FOLDER_PATH, help="결과 이미지 저장 폴더")
 parser.add_argument('--label_folder', type=str, default=DEFAULT_LABEL_FOLDER_PATH, help="클래스 개수 저장 폴더")
 parser.add_argument('--mode', type=str, choices=['predict', 'test'], default='predict', help="작업 모드: 'predict' 또는 'test'")
+parser.add_argument('--draw_label', action='store_true', default=False, help="바운딩 박스에 클래스 라벨을 표시")
 args = parser.parse_args()
 
 # 결과 폴더 생성
@@ -79,7 +83,7 @@ for filename in os.listdir(args.image_folder):
                 # 클래스별 개수 증가
                 class_counts[class_name] += 1
                 predictions.append((class_id, [x1, y1, x2, y2]))
-                draw_bounding_box(image, (int(x1), int(y1), int(x2), int(y2)), class_name, color)
+                draw_bounding_box(image, (int(x1), int(y1), int(x2), int(y2)), class_name, color,args.draw_label)
 
         # 'test' 모드인 경우, 예측 결과와 Ground Truth 비교
         if args.mode == 'test':

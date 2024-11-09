@@ -1,11 +1,11 @@
 # test.py
 
 from ultralytics import YOLO
-import os
+import os   
 
 def test_model():
     # Load the trained model
-    model = YOLO('/data2/UROP/ljh/UROP/model/experiment_m/weights/best.pt')  # Trained weights file
+    model = YOLO('/data2/UROP/ljh/UROP/model/experiment_l_500/weights/best.pt')  # Trained weights file
 
     # Run validation/test
     results = model.val(
@@ -17,7 +17,7 @@ def test_model():
         save=True,  # Disable default batch save to handle individually
         save_txt=True,  # Save result text for each image
         project ='/data2/UROP/ljh/UROP/result',
-        name = 'result_x'
+        name = 'result_l_500'
     )
 
     print(results.results_dict)

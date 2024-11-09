@@ -25,19 +25,23 @@ def train_model():
     set_seed(42)
 
     # YOLOv8 모델 불러오기 (pre-trained 모델 사용)
-    model = YOLO('yolov8x.pt')  # yolov8n, yolov8s, yolov8m 중 선택 가능
+    model = YOLO('yolov8l.pt')  # yolov8n, yolov8s, yolov8m 중 선택 가능
 
     # 학습 시작
     model.train(
         data='/data2/UROP/ljh/UROP/data.yaml',  # YAML 파일 경로
-        epochs=300,  # 학습할 에포크 수
+        epochs=500,  # 학습할 에포크 수
         imgsz=1024,  # 이미지 크기
         batch=8,  # 배치 크기
         lr0=0.01,  # 초기 학습률
         device=3,  # GPU 디바이스 선택
-        augment=True,  # YOLOv8 내장 증강 활성화
         project='/data2/UROP/ljh/UROP/model',  # 모델 저장 경로
-        name='experiment_x'  # 저장될 폴더 이름
+        name='experiment_l_500',  # 저장될 폴더 이름
+        augment=True,
+        degrees=10,
+        scale=0.15,
+        flipud=0.5,
+        fliplr=0.5,
     )
 
 
