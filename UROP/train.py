@@ -36,7 +36,7 @@ def train_model():
         lr0=0.01,  # 초기 학습률
         device=3,  # GPU 디바이스 선택
         project='/data2/UROP/ljh/UROP/model',  # 모델 저장 경로
-        name='experiment_l_500',  # 저장될 폴더 이름
+        name='experiment_l_500_ver2',  # 저장될 폴더 이름
         augment=True,
         degrees=10,
         scale=0.15,
@@ -46,4 +46,5 @@ def train_model():
 
 
 if __name__ == '__main__':
+    torch.cuda.empty_cache()
     train_model()
