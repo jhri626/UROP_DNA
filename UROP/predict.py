@@ -34,7 +34,11 @@ parser.add_argument('--mode', type=str, choices=['predict', 'test'], default='pr
 parser.add_argument('--draw_label', action='store_true', default=False, help="바운딩 박스에 클래스 라벨을 표시")
 parser.add_argument('--min_box_size', type=int , default=MIN_BOX_SIZE , help="min box size")
 parser.add_argument('--img_size', type=int , default=1024 , help="img size")
+parser.add_argument('--filter', action="store_true", default=False , help="filter")
 args = parser.parse_args()
+
+all_predictions = []
+all_ground_truths = []
 
 # 결과 폴더 생성
 os.makedirs(args.output_folder, exist_ok=True)
@@ -57,7 +61,8 @@ for filename in os.listdir(args.image_folder):
             batch=1, 
             device=f"cuda:{args.device}",
             conf=args.confidence,
-            iou=args.iou
+            iou=args.iou,
+            agnostic_nms=True
             #imgsz=2048
         )
         
@@ -73,8 +78,10 @@ for filename in os.listdir(args.image_folder):
         
         # 박스 필터링 수행
         for result in results:
-            filtered_boxes = filter_boxes(result.boxes)
-            #filtered_boxes=result.boxes
+            if args.filter == True:
+                filtered_boxes = filter_boxes(result.boxes)
+            else:
+                filtered_boxes=result.boxes
             
             # 예측 결과를 저장할 리스트
             predictions = []
@@ -121,12 +128,24 @@ for filename in os.listdir(args.image_folder):
         # 'test' 모드인 경우, 예측 결과와 Ground Truth 비교
         if args.mode == 'test': # 이건 안된다...
             # Ground Truth 불러오기
-            ground_truths = load_ground_truth(args.true_label_folder, filename)
+            ground_truths = load_ground_truth(args.true_label_folder, filename, image_height=args.img_size,image_width=args.img_size)
+            all_ground_truths.extend(ground_truths)
             
             # 성능 평가
-            metrics = evaluate(predictions, ground_truths)
+            # Add predictions and ground truths to global storage
+            predictions = []
+            for result in results:
+                for box in result.boxes:
+                    class_id = int(box.cls)
+                    x1, y1, x2, y2 = box.xyxy[0].cpu().numpy()
+                    predictions.append((class_id, [x1, y1, x2, y2]))
+            all_predictions.extend(predictions)
+        # Evaluate predictions for the current image
+            metrics = evaluate(predictions, ground_truths, iou_threshold=args.iou)
             all_metrics.append(metrics)
-            print(f"Metrics for {filename}: {metrics}")
+
+            print(f"Metrics for {filename}: Precision={metrics['precision']:.4f}, "
+              f"Recall={metrics['recall']:.4f}, F1-Score={metrics['f1_score']:.4f}")
 
         # 'predict' 또는 'test' 공통 처리 (이미지 및 클래스별 개수 저장)
         output_path = os.path.join(args.output_folder, f"predicted_{filename}")
@@ -147,10 +166,18 @@ for filename in os.listdir(args.image_folder):
         print(f"Class counts saved to {label_path}")
 
 # 전체 평균 성능 출력 (테스트 모드에서만 수행)
-if args.mode == 'test' and all_metrics:
-    average_metrics = {
-        "precision": np.mean([m["precision"] for m in all_metrics]),
-        "recall": np.mean([m["recall"] for m in all_metrics]),
-        "f1_score": np.mean([m["f1_score"] for m in all_metrics])
-    }
-    print(f"Overall Metrics: {average_metrics}")
+if args.mode == 'test':
+    if all_predictions and all_ground_truths:
+    # Calculate overall metrics
+        overall_precision = np.mean([m["precision"] for m in all_metrics])
+        overall_recall = np.mean([m["recall"] for m in all_metrics])
+        overall_f1_score = np.mean([m["f1_score"] for m in all_metrics])
+        map_results = evaluate(all_predictions, all_ground_truths, iou_threshold=args.iou)
+        
+        print(f"\nOverall mAP@50: {map_results['mAP50']:.4f}")
+        print("\nOverall Metrics:")
+        print(f"Precision: {overall_precision:.4f}")
+        print(f"Recall: {overall_recall:.4f}")
+        print(f"F1-Score: {overall_f1_score:.4f}")
+    else:
+        print(all_predictions)

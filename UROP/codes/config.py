@@ -15,7 +15,7 @@ BBOX_SCALE_FACTOR = 1
 FONT_SCALE = 0.5
 BBOX_THICKNESS = 2
 MIN_BOX_SIZE = 20
-OVERLAP_AREA_THRESHOLD = 0.85  # 작은 박스가 85% 이상 겹칠 경우 필터링
+OVERLAP_AREA_THRESHOLD = 0.75  # 작은 박스가 75% 이상 겹칠 경우 필터링
 
 # 클래스별 색상 설정
 np.random.seed(42)

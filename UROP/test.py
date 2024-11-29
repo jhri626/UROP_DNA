@@ -13,11 +13,11 @@ def test_model():
         split='test',
         imgsz=1024,  # Image size for testing
         device=3,
-        batch =1,
-        save=True,  # Disable default batch save to handle individually
-        save_txt=True,  # Save result text for each image
+        batch =4,
+        plots=True, 
+        save_json=True, 
         project ='/data2/UROP/ljh/UROP/result',
-        name = 'result_l_500_ver2'
+        name = 'result_l_500_ver2_batch'
     )
 
     print(results.results_dict)

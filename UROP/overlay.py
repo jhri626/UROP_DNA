@@ -79,9 +79,9 @@ def blend_images_in_batches_binary_and_color(folder_path, output_folder, batch_s
 
 # Folder path containing images and output file path
 folder_path = 'result/bboxes/label_2/correct'  # 폴더 경로를 여기에 입력하세요
-output_folder = 'overlay_img'  # 저장될 파일 경로 및 이름
+output_folder = 'overlay_img/1024'  # 저장될 파일 경로 및 이름
 
 # Create the output folder if it doesn't exist
 os.makedirs(output_folder, exist_ok=True)
 
-blend_images_in_batches_binary_and_color(folder_path, output_folder, batch_size=10)
+blend_images_in_batches_binary_and_color(folder_path, output_folder, batch_size=150)
