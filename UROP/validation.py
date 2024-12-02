@@ -23,10 +23,10 @@ def load_ground_truth(label_folder, filename, image_width, image_height):
             x_center, y_center, box_width, box_height = map(float, parts[1:])
 
             # Convert YOLO format to Pascal VOC
-            x1 = (x_center - box_width / 2) * image_width
-            y1 = (y_center - box_height / 2) * image_height
-            x2 = (x_center + box_width / 2) * image_width
-            y2 = (y_center + box_height / 2) * image_height
+            x1 = int((x_center - box_width / 2) * image_width)
+            y1 = int((y_center - box_height / 2) * image_height)
+            x2 = int((x_center + box_width / 2) * image_width)
+            y2 = int((y_center + box_height / 2) * image_height)
 
             ground_truth.append((class_id, [x1, y1, x2, y2]))
     return ground_truth
@@ -38,6 +38,7 @@ def match_predictions(predictions, ground_truths, iou_threshold):
     tp = 0
     fp = 0
     matched_gt = set()  # Track matched ground truth indices
+    fp_boxes = []
 
     # Convert ground_truths and predictions into lists for matching
     gt_boxes = [(idx, gt_class, gt_box) for idx, (gt_class, gt_box) in enumerate(ground_truths)]
@@ -64,13 +65,14 @@ def match_predictions(predictions, ground_truths, iou_threshold):
             matched_gt.add(best_gt_idx)  # Mark the ground truth as matched
         else:
             fp += 1  # No valid match for this prediction
+            fp_boxes.append(pred_box)
 
     # Calculate false negatives (ground truths that are not matched)
     fn = len(ground_truths) - len(matched_gt)
 
     print(f"tp : {tp}, fp : {fp}, fn : {fn}")
 
-    return tp, fp, fn
+    return tp, fp, fn,fp_boxes
 
 def compute_precision_recall(tp, fp, fn):
     """Compute precision, recall, and F1-score."""
@@ -95,6 +97,7 @@ def evaluate(predictions, ground_truths, iou_threshold=0.5):
 
     ap_per_class = []
     metrics_per_class = {}
+    all_fp_boxes = []
 
     for class_id in set(pred_by_class.keys()).union(gt_by_class.keys()):
         # Get predictions and ground truths for this class
@@ -102,8 +105,11 @@ def evaluate(predictions, ground_truths, iou_threshold=0.5):
         gts = [(class_id, box) for box in gt_by_class.get(class_id, [])]
 
         # Match predictions and calculate TP, FP, FN
-        tp, fp, fn = match_predictions(preds, gts, iou_threshold)
+        tp, fp, fn, fp_boxes = match_predictions(preds, gts, iou_threshold)
+        all_fp_boxes.extend(fp_boxes)  # Collect FP boxes
+
         precision, recall, f1_score = compute_precision_recall(tp, fp, fn)
+
 
         # Store metrics for this class
         metrics_per_class[class_id] = {
@@ -131,5 +137,6 @@ def evaluate(predictions, ground_truths, iou_threshold=0.5):
         "precision": average_precision,
         "recall": average_recall,
         "f1_score": average_f1_score,
-        "mAP50": map50 
+        "mAP50": map50,
+        "false_positives": all_fp_boxes
     }

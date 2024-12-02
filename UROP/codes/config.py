@@ -15,8 +15,19 @@ BBOX_SCALE_FACTOR = 1
 FONT_SCALE = 0.5
 BBOX_THICKNESS = 2
 MIN_BOX_SIZE = 20
-OVERLAP_AREA_THRESHOLD = 0.75  # 작은 박스가 75% 이상 겹칠 경우 필터링
+OVERLAP_AREA_THRESHOLD = 0.5  # 작은 박스가 70% 이상 겹칠 경우 필터링
 
 # 클래스별 색상 설정
-np.random.seed(42)
-COLORS = {i: (np.random.randint(128, 255), np.random.randint(128, 255), np.random.randint(128, 255)) for i in range(80)}
+COLORS = {
+    0: (255, 153, 153),  # 밝은 핑크
+    1: (153, 255, 153),  # 밝은 연두
+    2: (153, 153, 255),  # 밝은 파랑
+    3: (255, 255, 153),  # 밝은 노랑
+    4: (255, 153, 255),  # 밝은 자주
+    5: (153, 255, 255),  # 밝은 하늘
+    6: (255, 204, 153),  # 밝은 살구
+    7: (204, 255, 153),  # 밝은 라임
+    8: (153, 204, 255),  # 밝은 청색
+    9: (255, 153, 204)   # 밝은 핑크빛 살구
+}
+

@@ -74,12 +74,14 @@ for filename in os.listdir(args.image_folder):
 
         # YOLO 형식으로 저장할 데이터를 담을 리스트
         yolo_format_data = []
+        filtered_boxes_list=[]
             
         
         # 박스 필터링 수행
         for result in results:
             if args.filter == True:
                 filtered_boxes = filter_boxes(result.boxes)
+                filtered_boxes_list.append(filtered_boxes)
             else:
                 filtered_boxes=result.boxes
             
@@ -95,8 +97,8 @@ for filename in os.listdir(args.image_folder):
                 x1, y1, x2, y2 = box.xyxy[0].cpu().numpy()
                 width_box, height_box = x2 - x1, y2 - y1
                 width, height = args.img_size, args.img_size
-                if width_box < args.min_box_size or height_box < args.min_box_size:
-                    continue
+                # if width_box < args.min_box_size or height_box < args.min_box_size:
+                #     continue
                 
                 # 클래스별 개수 증가
                 class_counts[class_name] += 1
@@ -134,18 +136,27 @@ for filename in os.listdir(args.image_folder):
             # 성능 평가
             # Add predictions and ground truths to global storage
             predictions = []
-            for result in results:
-                for box in result.boxes:
+            
+            for filtered_boxes in filtered_boxes_list:
+                for box in filtered_boxes:
                     class_id = int(box.cls)
                     x1, y1, x2, y2 = box.xyxy[0].cpu().numpy()
                     predictions.append((class_id, [x1, y1, x2, y2]))
-            all_predictions.extend(predictions)
+                all_predictions.extend(predictions)
         # Evaluate predictions for the current image
-            metrics = evaluate(predictions, ground_truths, iou_threshold=args.iou)
+            metrics = evaluate(predictions, ground_truths, iou_threshold=0.5)
             all_metrics.append(metrics)
 
             print(f"Metrics for {filename}: Precision={metrics['precision']:.4f}, "
               f"Recall={metrics['recall']:.4f}, F1-Score={metrics['f1_score']:.4f}")
+            for boxes in metrics['false_positives']:
+                x1, y1, x2, y2 = boxes
+                center_x = int((x1 + x2) / 2)
+                center_y = int((y1 + y2) / 2)
+                cv2.putText(image, "FP", (center_x, center_y), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 0, 255), 2)
+                    
+
+
 
         # 'predict' 또는 'test' 공통 처리 (이미지 및 클래스별 개수 저장)
         output_path = os.path.join(args.output_folder, f"predicted_{filename}")
@@ -172,7 +183,7 @@ if args.mode == 'test':
         overall_precision = np.mean([m["precision"] for m in all_metrics])
         overall_recall = np.mean([m["recall"] for m in all_metrics])
         overall_f1_score = np.mean([m["f1_score"] for m in all_metrics])
-        map_results = evaluate(all_predictions, all_ground_truths, iou_threshold=args.iou)
+        map_results = evaluate(all_predictions, all_ground_truths, iou_threshold=0.5)
         
         print(f"\nOverall mAP@50: {map_results['mAP50']:.4f}")
         print("\nOverall Metrics:")
