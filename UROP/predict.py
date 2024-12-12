@@ -84,6 +84,7 @@ for filename in os.listdir(args.image_folder):
                 filtered_boxes_list.append(filtered_boxes)
             else:
                 filtered_boxes=result.boxes
+                filtered_boxes_list.append(filtered_boxes)
             
             # 예측 결과를 저장할 리스트
             predictions = []
@@ -148,7 +149,7 @@ for filename in os.listdir(args.image_folder):
             all_metrics.append(metrics)
 
             print(f"Metrics for {filename}: Precision={metrics['precision']:.4f}, "
-              f"Recall={metrics['recall']:.4f}, F1-Score={metrics['f1_score']:.4f}")
+              f"Recall={metrics['recall']:.4f}, F1-Score={metrics['f1_score']:.4f},mAP@50={metrics['mAP50']:.4f}")
             for boxes in metrics['false_positives']:
                 x1, y1, x2, y2 = boxes
                 center_x = int((x1 + x2) / 2)
@@ -183,9 +184,9 @@ if args.mode == 'test':
         overall_precision = np.mean([m["precision"] for m in all_metrics])
         overall_recall = np.mean([m["recall"] for m in all_metrics])
         overall_f1_score = np.mean([m["f1_score"] for m in all_metrics])
-        map_results = evaluate(all_predictions, all_ground_truths, iou_threshold=0.5)
-        
-        print(f"\nOverall mAP@50: {map_results['mAP50']:.4f}")
+        overall_mAP50= np.mean([m["mAP50"] for m in all_metrics])
+
+        print(f"\nOverall mAP@50: {overall_mAP50:.4f}")
         print("\nOverall Metrics:")
         print(f"Precision: {overall_precision:.4f}")
         print(f"Recall: {overall_recall:.4f}")

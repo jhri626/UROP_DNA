@@ -15,7 +15,7 @@ def test_model():
         device=3,
         batch =4,
         plots=True, 
-        save_json=True, 
+        #save_json=True, 
         project ='/data2/UROP/ljh/UROP/result',
         name = 'result_l_500_ver2_batch'
     )

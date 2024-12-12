@@ -138,5 +138,7 @@ def evaluate(predictions, ground_truths, iou_threshold=0.5):
         "recall": average_recall,
         "f1_score": average_f1_score,
         "mAP50": map50,
-        "false_positives": all_fp_boxes
+        "false_positives": all_fp_boxes,
+        "class_precision": precisions,
+        "class_recall": recalls,
     }
